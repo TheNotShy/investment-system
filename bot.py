@@ -20,7 +20,7 @@ from orchestrator import (
     run_news_cycle, run_volume_cycle, run_ta_cycle,
     run_morning_briefing, run_evening_scout, run_weekly_report, handle_dca_request
 )
-from agents.portfolio_agent import analyze_portfolio, morning_briefing
+from agents.portfolio_agent import analyze_portfolio
 from agents.ta_agent import analyze_ticker
 from agents.data_agent import get_current_datetime
 
@@ -97,7 +97,6 @@ async def free_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     portfolio_text = ""
     if data["success"]:
         portfolio_text = f"\nПортфель: {data['total']:,.0f} ₽, P&L: {data['total_pl_rub']:+,.0f} ₽"
-
     resp = claude.messages.create(
         model="claude-sonnet-4-5", max_tokens=700,
         system=f"Ты инвестиционный помощник. Отвечай простым языком без терминов. Дата: {get_current_datetime()}{portfolio_text}",
@@ -122,13 +121,22 @@ async def job_evening_scout(context: ContextTypes.DEFAULT_TYPE):
 
 async def job_weekly(context: ContextTypes.DEFAULT_TYPE):
     from datetime import datetime
-    if datetime.now(MOSCOW_TZ).weekday() == 4:  # пятница
+    if datetime.now(MOSCOW_TZ).weekday() == 4:
         await run_weekly_report(context.bot)
 
-def main():
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
-    jq = app.job_queue
+# ===== POST INIT — сбрасываем вебхук =====
+async def post_init(application: Application):
+    await application.bot.delete_webhook(drop_pending_updates=True)
 
+def main():
+    app = (
+        Application.builder()
+        .token(TELEGRAM_TOKEN)
+        .post_init(post_init)
+        .build()
+    )
+
+    jq = app.job_queue
     jq.run_daily(job_morning, time=time(9,0,tzinfo=MOSCOW_TZ), name="morning")
     jq.run_daily(job_evening_scout, time=time(18,0,tzinfo=MOSCOW_TZ), chat_id=OWNER_ID, name="scout")
     jq.run_daily(job_weekly, time=time(18,30,tzinfo=MOSCOW_TZ), chat_id=OWNER_ID, name="weekly")
@@ -145,7 +153,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, free_message))
 
     print("Мульти-агентная система запущена!")
-    app.run_polling()
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
