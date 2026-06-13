@@ -1,6 +1,5 @@
 """
 Telegram Bot — точка входа для всей системы.
-Подключает оркестратор и все агенты.
 """
 import os
 import time as time_module
@@ -26,19 +25,13 @@ from agents.data_agent import get_current_datetime
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Привет! Я твой инвестиционный ИИ — мульти-агентная система 📈\n\n"
-        "Команды:\n"
-        "/portfolio — портфель с P&L\n"
-        "/report — утренний брифинг сейчас\n"
-        "/ta [тикер] — технический анализ (напр. /ta SBER)\n"
-        "/dca — что купить при пополнении\n"
+        "Привет! Я твой инвестиционный ИИ 📈\n\n"
+        "/portfolio — портфель\n"
+        "/report — брифинг\n"
+        "/ta SBER — теханализ\n"
+        "/dca — что купить\n"
         "/week — недельный отчёт\n"
-        "/scout — поиск новых идей\n\n"
-        "Или просто напиши любой вопрос!\n\n"
-        "☀️ Брифинг в 9:00 МСК\n"
-        "💡 Скаутинг в 18:00 МСК\n"
-        "📰 Новости каждые 2 мин\n"
-        "📊 Объёмы и ТА каждые 15 мин"
+        "/scout — новые идеи"
     )
 
 async def portfolio_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -47,14 +40,12 @@ async def portfolio_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not data["success"]:
         await update.message.reply_text(f"❌ {data['error']}")
         return
-    text = f"📊 *Портфель — {get_current_datetime()}*\n\n"
-    text += f"💼 Итого: *{data['total']:,.0f} ₽*\n"
-    text += f"P&L: *{data['total_pl_rub']:+,.0f} ₽* ({data['total_pl_pct']:+.1f}%)\n\n"
+    text = f"📊 *Портфель — {get_current_datetime()}*\n\n💼 *{data['total']:,.0f} ₽*\nP&L: *{data['total_pl_rub']:+,.0f} ₽*\n\n"
     for pos in data["positions"]:
         em = "🟢" if pos["pl_pct"] >= 0 else "🔴"
-        text += f"{em} *{pos['name']}*: {pos['pl_pct']:+.1f}% ({pos['pl_rub']:+,.0f} ₽)\n"
+        text += f"{em} *{pos['name']}*: {pos['pl_pct']:+.1f}%\n"
     if data["alerts"]:
-        text += f"\n⚠️ *Алерты:*\n" + "\n".join(data["alerts"])
+        text += "\n⚠️ " + "\n".join(data["alerts"])
     await update.message.reply_text(text, parse_mode="Markdown")
 
 async def report_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -71,10 +62,10 @@ async def ta_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not result["success"]:
         await update.message.reply_text(f"❌ {result.get('error')}")
         return
-    await update.message.reply_text(f"📈 *Теханализ {ticker}*\n\n{result['analysis']}", parse_mode="Markdown")
+    await update.message.reply_text(f"📈 *{ticker}*\n\n{result['analysis']}", parse_mode="Markdown")
 
 async def dca_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Готовлю рекомендации для DCA... ⏳")
+    await update.message.reply_text("Готовлю DCA рекомендации... ⏳")
     await handle_dca_request(context.application.bot)
 
 async def week_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -91,12 +82,10 @@ async def free_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     question = update.message.text
     await update.message.reply_text("Думаю... 🧠")
     data = analyze_portfolio()
-    portfolio_text = ""
-    if data["success"]:
-        portfolio_text = f"\nПортфель: {data['total']:,.0f} ₽, P&L: {data['total_pl_rub']:+,.0f} ₽"
+    portfolio_text = f"\nПортфель: {data['total']:,.0f} ₽" if data["success"] else ""
     resp = claude.messages.create(
         model="claude-sonnet-4-5", max_tokens=700,
-        system=f"Ты инвестиционный помощник. Отвечай простым языком без терминов. Дата: {get_current_datetime()}{portfolio_text}",
+        system=f"Ты инвестиционный помощник. Дата: {get_current_datetime()}{portfolio_text}",
         messages=[{"role": "user", "content": question}]
     )
     await update.message.reply_text(f"🤖 {resp.content[0].text}")
@@ -119,20 +108,11 @@ async def job_weekly(context: ContextTypes.DEFAULT_TYPE):
     if datetime.now(MOSCOW_TZ).weekday() == 4:
         await run_weekly_report(context.bot)
 
-async def post_init(application: Application):
-    """Сбрасываем вебхук и старые апдейты при старте"""
-    await application.bot.delete_webhook(drop_pending_updates=True)
-
 def main():
-    # Задержка чтобы избежать конфликта при перезапуске
-    time_module.sleep(5)
+    print("Запуск мульти-агентной системы...")
+    time_module.sleep(3)
 
-    app = (
-        Application.builder()
-        .token(TELEGRAM_TOKEN)
-        .post_init(post_init)
-        .build()
-    )
+    app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     jq = app.job_queue
     jq.run_daily(job_morning, time=time(9, 0, tzinfo=MOSCOW_TZ), name="morning")
@@ -151,7 +131,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, free_message))
 
     print("Мульти-агентная система запущена!")
-    app.run_polling(drop_pending_updates=True)
+    app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
