@@ -3,7 +3,7 @@ Telegram Bot — точка входа для всей системы.
 Подключает оркестратор и все агенты.
 """
 import os
-import asyncio
+import time as time_module
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
@@ -23,8 +23,6 @@ from orchestrator import (
 from agents.portfolio_agent import analyze_portfolio
 from agents.ta_agent import analyze_ticker
 from agents.data_agent import get_current_datetime
-
-# ===== КОМАНДЫ =====
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -73,8 +71,7 @@ async def ta_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not result["success"]:
         await update.message.reply_text(f"❌ {result.get('error')}")
         return
-    text = f"📈 *Теханализ {ticker}*\n\n{result['analysis']}"
-    await update.message.reply_text(text, parse_mode="Markdown")
+    await update.message.reply_text(f"📈 *Теханализ {ticker}*\n\n{result['analysis']}", parse_mode="Markdown")
 
 async def dca_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Готовлю рекомендации для DCA... ⏳")
@@ -100,11 +97,9 @@ async def free_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     resp = claude.messages.create(
         model="claude-sonnet-4-5", max_tokens=700,
         system=f"Ты инвестиционный помощник. Отвечай простым языком без терминов. Дата: {get_current_datetime()}{portfolio_text}",
-        messages=[{"role":"user","content":question}]
+        messages=[{"role": "user", "content": question}]
     )
     await update.message.reply_text(f"🤖 {resp.content[0].text}")
-
-# ===== JOBS =====
 
 async def job_news(context: ContextTypes.DEFAULT_TYPE):
     await run_news_cycle(context.bot)
@@ -124,11 +119,14 @@ async def job_weekly(context: ContextTypes.DEFAULT_TYPE):
     if datetime.now(MOSCOW_TZ).weekday() == 4:
         await run_weekly_report(context.bot)
 
-# ===== POST INIT — сбрасываем вебхук =====
 async def post_init(application: Application):
+    """Сбрасываем вебхук и старые апдейты при старте"""
     await application.bot.delete_webhook(drop_pending_updates=True)
 
 def main():
+    # Задержка чтобы избежать конфликта при перезапуске
+    time_module.sleep(5)
+
     app = (
         Application.builder()
         .token(TELEGRAM_TOKEN)
@@ -137,9 +135,9 @@ def main():
     )
 
     jq = app.job_queue
-    jq.run_daily(job_morning, time=time(9,0,tzinfo=MOSCOW_TZ), name="morning")
-    jq.run_daily(job_evening_scout, time=time(18,0,tzinfo=MOSCOW_TZ), chat_id=OWNER_ID, name="scout")
-    jq.run_daily(job_weekly, time=time(18,30,tzinfo=MOSCOW_TZ), chat_id=OWNER_ID, name="weekly")
+    jq.run_daily(job_morning, time=time(9, 0, tzinfo=MOSCOW_TZ), name="morning")
+    jq.run_daily(job_evening_scout, time=time(18, 0, tzinfo=MOSCOW_TZ), chat_id=OWNER_ID, name="scout")
+    jq.run_daily(job_weekly, time=time(18, 30, tzinfo=MOSCOW_TZ), chat_id=OWNER_ID, name="weekly")
     jq.run_repeating(job_news, interval=120, first=30, chat_id=OWNER_ID, name="news")
     jq.run_repeating(job_volume_ta, interval=900, first=60, chat_id=OWNER_ID, name="volume_ta")
 
