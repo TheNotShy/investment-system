@@ -45,7 +45,7 @@ def analyze_ticker(ticker: str) -> dict:
     """Полный технический анализ по тикеру"""
     # Берём данные за разные периоды
     daily = get_candles(ticker, days=60, interval="day")
-    weekly = get_candles(ticker, days=180, interval="week")
+    weekly = get_candles(ticker, days=365, interval="week")
     quote = get_ticker_quote(ticker)
 
     if not daily["success"]:
@@ -66,14 +66,17 @@ def analyze_ticker(ticker: str) -> dict:
 
     current_price = quote["price"] if quote["success"] else closes[-1]
     change_pct = quote.get("change_pct") if quote["success"] else None
+    change_text = f"{change_pct:+.2f}% за день" if change_pct is not None else "изменение за день неизвестно"
 
     # Уровни поддержки и сопротивления (упрощённые)
     recent_high = max(highs[-20:]) if len(highs) >= 20 else max(highs)
     recent_low = min(lows[-20:]) if len(lows) >= 20 else min(lows)
 
-    # 52-недельный мин/макс
-    w52_high = max(highs) if highs else None
-    w52_low = min(lows) if lows else None
+    # 52-недельный мин/макс — из недельных свечей за год, с запасным вариантом на дневные данные
+    w52_highs = [c["high"] for c in weekly["candles"] if c.get("high")] if weekly["success"] else []
+    w52_lows = [c["low"] for c in weekly["candles"] if c.get("low")] if weekly["success"] else []
+    w52_high = max(w52_highs) if w52_highs else (max(highs) if highs else None)
+    w52_low = min(w52_lows) if w52_lows else (min(lows) if lows else None)
 
     signals = []
     if rsi and rsi < 30: signals.append("перепродан_rsi")
@@ -105,7 +108,7 @@ def analyze_ticker(ticker: str) -> dict:
 
 Акция: {ticker}
 Дата: {get_current_datetime()}
-Текущая цена: {current_price} ₽ ({change_pct:+.2f}% за день)
+Текущая цена: {current_price} ₽ ({change_text})
 RSI: {rsi} {'(сильно упала, может отскочить)' if rsi and rsi < 30 else '(сильно выросла, может откатиться)' if rsi and rsi > 70 else '(нейтрально)'}
 MA20: {ma20} ₽, MA50: {ma50} ₽ {'(тренд вверх)' if ma20 and ma50 and ma20 > ma50 else '(тренд вниз)'}
 MACD: {macd_val} {'(позитивный сигнал)' if macd_val and macd_val > 0 else '(негативный сигнал)'}

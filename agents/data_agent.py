@@ -41,7 +41,7 @@ TOP50_TICKERS = [
     "MTSS","MGNT","YNDX","OZON","AFLT","VTBR","MOEX","ALRS","PHOR","NLMK",
     "MAGN","CHMF","PIKK","AFKS","FEES","HYDR","IRAO","RUAL","TRNFP","NMTP",
     "X5","BELU","ETLN","EUTR","OZPH","SMLT","FIXP","VKCO","TCSG","FLOT",
-    "GLTR","MDMG","MVID","LSRG","UPRO","MSNG","DSKY","SPBE","GEMC","OZPH",
+    "GLTR","MDMG","MVID","LSRG","UPRO","MSNG","DSKY","SPBE","GEMC",
 ]
 
 def _to_float(money):

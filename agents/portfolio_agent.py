@@ -148,7 +148,7 @@ def weekly_report() -> str:
     for ticker, divs in div_cal.get("calendar", {}).items():
         if divs:
             last = divs[0]
-            div_text += f"- {ticker}: {last.get('value')} {last.get('currency')} (отсечка: {last.get('registry_date')})\n"
+            div_text += f"- {ticker}: {last.get('value')} {last.get('currencyid')} (отсечка: {last.get('registryclosedate')})\n"
 
     prompt = f"""Составь еженедельный инвестиционный отчёт.
 

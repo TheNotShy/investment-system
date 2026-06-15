@@ -83,12 +83,15 @@ async def free_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Думаю... 🧠")
     data = analyze_portfolio()
     portfolio_text = f"\nПортфель: {data['total']:,.0f} ₽" if data["success"] else ""
-    resp = claude.messages.create(
-        model="claude-sonnet-4-5", max_tokens=700,
-        system=f"Ты инвестиционный помощник. Дата: {get_current_datetime()}{portfolio_text}",
-        messages=[{"role": "user", "content": question}]
-    )
-    await update.message.reply_text(f"🤖 {resp.content[0].text}")
+    try:
+        resp = claude.messages.create(
+            model="claude-sonnet-4-5", max_tokens=700,
+            system=f"Ты инвестиционный помощник. Дата: {get_current_datetime()}{portfolio_text}",
+            messages=[{"role": "user", "content": question}]
+        )
+        await update.message.reply_text(f"🤖 {resp.content[0].text}")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ошибка: {e}")
 
 async def job_news(context: ContextTypes.DEFAULT_TYPE):
     await run_news_cycle(context.bot)

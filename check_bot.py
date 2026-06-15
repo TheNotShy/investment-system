@@ -2,7 +2,7 @@ import requests
 import os
 from dotenv import load_dotenv
 
-load_dotenv('../.env')
+load_dotenv()
 token = os.getenv("TELEGRAM_BOT_TOKEN")
 r = requests.get(f'https://api.telegram.org/bot{token}/getWebhookInfo')
 print(r.json())

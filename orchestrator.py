@@ -21,11 +21,17 @@ executor = ThreadPoolExecutor(max_workers=4)
 
 async def run_in_thread(func, *args):
     """Запускает синхронную функцию в thread pool"""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(executor, func, *args)
 
-async def send(bot: Bot, text: str):
+async def send(bot: Bot, text: str, agent_name: str = None):
     try:
+        if agent_name:
+            verdict = await run_in_thread(verify_message, text, agent_name)
+            if not verdict["approved"]:
+                print(f"⚠️ Критик заблокировал сообщение от {agent_name}: {verdict['issues']}")
+                return
+            text = verdict["message"]
         # Разбиваем длинные сообщения
         if len(text) > 4000:
             text = text[:4000] + "..."
@@ -42,7 +48,7 @@ async def run_news_cycle(bot: Bot):
         news_items = await run_in_thread(process_news)
         for item in news_items[:3]:  # Максимум 3 новости за цикл
             msg = format_news_message(item)
-            await send(bot, msg)
+            await send(bot, msg, "news_agent")
             await asyncio.sleep(1)
     except Exception as e:
         print(f"Ошибка news_cycle: {e}")
@@ -55,7 +61,7 @@ async def run_volume_cycle(bot: Bot):
         results = await run_in_thread(check_volume_anomalies)
         for r in results:
             msg = f"📊 *Аномальные объёмы*\n\n{r['analysis']}"
-            await send(bot, msg)
+            await send(bot, msg, "volume_agent")
     except Exception as e:
         print(f"Ошибка volume_cycle: {e}")
 
@@ -67,7 +73,7 @@ async def run_ta_cycle(bot: Bot):
         signals = await run_in_thread(scan_portfolio_ta, PORTFOLIO_TICKERS)
         for signal in signals[:2]:  # Максимум 2 сигнала
             msg = f"📈 *Технический сигнал: {signal['ticker']}*\n\n{signal['analysis']}"
-            await send(bot, msg)
+            await send(bot, msg, "ta_agent")
     except Exception as e:
         print(f"Ошибка ta_cycle: {e}")
 
@@ -75,7 +81,7 @@ async def run_morning_briefing(bot: Bot):
     """Утренний брифинг — 9:00 МСК"""
     try:
         text = await run_in_thread(morning_briefing)
-        await send(bot, f"☀️ *Утренний брифинг — {get_current_datetime()}*\n\n{text}")
+        await send(bot, f"☀️ *Утренний брифинг — {get_current_datetime()}*\n\n{text}", "portfolio_agent")
     except Exception as e:
         await send(bot, f"❌ Ошибка брифинга: {e}")
 
@@ -85,7 +91,7 @@ async def run_evening_scout(bot: Bot):
         results = await run_in_thread(find_opportunities)
         if results:
             msg = f"💡 *Вечерний скаутинг идей*\n\n{results[0]['ideas']}"
-            await send(bot, msg)
+            await send(bot, msg, "scout_agent")
         else:
             await send(bot, "💡 *Скаутинг*: Сильных идей на сегодня нет.")
     except Exception as e:
@@ -95,7 +101,7 @@ async def run_weekly_report(bot: Bot):
     """Еженедельный отчёт — пятница 18:30"""
     try:
         text = await run_in_thread(weekly_report)
-        await send(bot, f"📊 *Недельный отчёт — {get_current_datetime()}*\n\n{text}")
+        await send(bot, f"📊 *Недельный отчёт — {get_current_datetime()}*\n\n{text}", "portfolio_agent")
     except Exception as e:
         await send(bot, f"❌ Ошибка отчёта: {e}")
 
@@ -103,6 +109,6 @@ async def handle_dca_request(bot: Bot):
     """DCA рекомендации"""
     try:
         text = await run_in_thread(get_dca_recommendations)
-        await send(bot, f"💰 *Рекомендации для DCA*\n\n{text}")
+        await send(bot, f"💰 *Рекомендации для DCA*\n\n{text}", "portfolio_agent")
     except Exception as e:
         await send(bot, f"❌ Ошибка DCA: {e}")

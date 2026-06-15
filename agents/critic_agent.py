@@ -70,7 +70,7 @@ def verify_dividends_claim(ticker: str, claimed_value: float = None) -> dict:
     return {
         "verified": True,
         "latest_dividend": latest.get("value"),
-        "currency": latest.get("currency"),
-        "registry_date": latest.get("registry_date"),
+        "currency": latest.get("currencyid"),
+        "registry_date": latest.get("registryclosedate"),
         "source": "MOEX ISS"
     }
